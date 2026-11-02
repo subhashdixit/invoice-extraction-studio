@@ -1,5 +1,8 @@
 # Invoice Extraction Studio
 
+**Reproducible versions:** [Dependency versions and exact setup](DEPENDENCIES.md).
+
+
 [Open the application](https://subhashdixit.github.io/invoice-extraction-studio/) · [Report an issue](https://github.com/subhashdixit/invoice-extraction-studio/issues)
 
 Read an invoice locally, correct extracted fields and check whether its totals reconcile.
