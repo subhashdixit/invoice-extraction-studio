@@ -1,0 +1,5 @@
+{
+  "tool": "invoice",
+  "title": "Invoice Extraction Studio",
+  "gateway": "https://portfolio-ai-gateway.onrender.com"
+}
