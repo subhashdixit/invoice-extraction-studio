@@ -1,9 +1,4 @@
-# Historical prototype dependencies: preserved for reference.
-# Supported maintained-release installation and exact locks: DEPENDENCIES.md.
-streamlit==1.36.0
-google-generativeai
-python-dotenv==1.0.1
-IPython==8.26.0
-langchain==0.2.6
-PyPDF2==3.0.1
-chromadb==0.5.3
+# No third-party Python packages are needed by the maintained browser app.
+# Use Node.js 22.23.4 / npm 10.9.9 and run: npm ci
+# package-lock.json pins all JavaScript development dependencies.
+# See DEPENDENCIES.md. Historical prototype requirements: archive/prototype-requirements.in
