@@ -1,63 +1,105 @@
 # Invoice Extraction Studio
 
-**Reproducible versions:** [Dependency versions and exact setup](DEPENDENCIES.md).
+## 1. Project overview
 
+Turn invoice text or an image into editable structured fields, then check the extracted amounts against the original document.
 
-[Open the application](https://subhashdixit.github.io/invoice-extraction-studio/) · [Report an issue](https://github.com/subhashdixit/invoice-extraction-studio/issues)
+[Live demo](https://subhashdixit.github.io/invoice-extraction-studio/) · [Source repository](https://github.com/subhashdixit/invoice-extraction-studio)
 
-Read an invoice locally, correct extracted fields and check whether its totals reconcile.
+![Invoice Extraction Studio main screen](docs/images/application.png)
 
-## What the finished application does
+## 2. Motivation and problem statement
 
-- A complete HTML/JavaScript workflow with included example, file import, editable outputs and local export.
-- Local evidence/extraction mode with explicit algorithm labels.
-- Keyless local open-model generation with explicit downloads, progress and cancellation.
-- Input size limits, provider errors and source/citation checks shown in the UI.
+Invoice details arrive in PDFs and scans with different layouts. Copying amounts and identifiers by hand is slow and can introduce errors. This app reads supported material on the device, brings common fields into one review screen, and flags when subtotal plus tax differs from the reported total.
 
-## Use the application step by step
+## 3. Solution and scope
 
-1. Open the live application. Read the input labels and scope panel.
-2. Start with the included example to understand the output.
-3. Replace it with your own supported input. Files are processed locally unless you explicitly choose a server feature and consent to it.
-4. Run the analysis and inspect the visual output together with its limitations.
-5. Export your results when the tool offers a download. Keep your own copy; a browser tab is not a durable data store.
+Import text or a PDF with a readable text layer, or run local English/Hindi OCR on a supported invoice image. Extract fields, review them against the source, correct the output, and download it. Optional local AI handles questions about a text transcript or experimental image analysis.
 
-## Concepts, algorithms and interpretation
+## 4. Quick start and usage
 
-### Retrieval and generation have different jobs
+1. Open the demo and choose the fictional invoice, paste text, or import a supported file.
+2. For an image, choose the OCR language, run local OCR, and review the transcript.
+3. Run the local tool to extract fields and check the totals. Correct the editable result against the original invoice.
+4. If needed, opt into the local model download for a question about the transcript or experimental image analysis. Download the reviewed output.
 
-Local BM25 ranks source excerpts using query-term rarity and document-length normalization (k1=1.2, b=0.75). It returns exact evidence and scores; a high lexical score is not an answer-confidence probability. An empty match means no evidence found. It cannot understand all paraphrases or resolve contradictory facts. Generation asks a downloaded open model to write an answer from supplied evidence in the browser; tool-specific instructions, no external execution tools and bounded output keep the workflow inspectable. An LLM may still hallucinate or follow malicious text, so source checking remains essential.
-
-### Extraction and preprocessing
-
-PDF.js reads selectable text page by page and preserves page markers. Scans have no guaranteed text layer. The local summarizer scores sentences by term frequency, normalized for length, and restores their original order. It copies source sentences rather than inventing an abstractive summary; it can miss rare but important details. OCR estimates characters from pixels and can misread punctuation, amounts and handwriting. Local invoice parsing is heuristic: missing fields remain null; subtotal + tax is compared with total, but discounts, shipping or multiple tax lines may require correction. Passing arithmetic does not authenticate an invoice.
-
-### Free open models: no key required
-
-Generation runs in a browser Web Worker with Transformers.js 4.3.2 (version-pinned official npm distribution via jsDelivr) and vendored ONNX Runtime Web WASM assets. The public library download is a network dependency; it receives routine connection metadata, not prompts. Text choices are [SmolLM2-135M-Instruct](https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct) (~137 MB q8 weights) and [Qwen2.5-0.5B-Instruct ONNX](https://huggingface.co/onnx-community/Qwen2.5-0.5B-Instruct) (~512 MB). Image tools also offer [SmolVLM-256M-Instruct](https://huggingface.co/HuggingFaceTB/SmolVLM-256M-Instruct) (~260 MB across three q8 components). Model revisions are pinned in `site/model-policy.js`; these models are Apache-2.0 licensed. Read each model card's limitations.
-
-The first run downloads public weights/tokenizers from Hugging Face plus the same-origin WASM runtime. It requires network bandwidth, browser storage and sufficient RAM; memory use exceeds file size. Later runs may reuse browser cache. No API account/key, paid inference subscription or hosted model server is required. Browser cache eviction or model-host availability can require a fresh download. No perpetual hosting guarantee is implied.
-
-Prompts and images stay in this browser's worker. There is no model-inference API request. The user explicitly starts the model download, progress is shown, and Stop terminates the worker. CPU/WASM uses one thread to work without Pages cross-origin-isolation headers. Model generation is limited to 3,500 evidence characters, 600 question characters, 1,800 input tokens and 160 new tokens; longer inputs must be shortened explicitly, rather than silently treated as fully read. Vision inputs are resized proportionally to a maximum 512-pixel edge. Detailed invoice OCR is better served by the separate local OCR/field-validation path.
-
-These are small experimental models. Generated text can be repetitive, incomplete, unsupported or inconsistent with evidence. Citations are checked for known IDs, not factual entailment. Never infer that a generated number is correct because it looks plausible. The deterministic extractive/retrieval modes remain the more traceable option. Images are analyzed, not generated.
-
-## Architecture and data flow
+## 5. High-level architecture
 
 ```mermaid
 flowchart LR
-  Document[Local text / PDF / image] --> Extract[Local extraction / OCR / retrieval]
-  Weights[Public pinned open-model files] --> Worker[Local WASM model worker]
-  Extract --> Worker
-  Extract --> Review[Editable source-based result]
-  Worker --> Review
-  Review --> Export[Local export]
-  CI[Tests + lint + format] --> Pages[Publish site on GitHub Pages]
+    A["Invoice text, PDF, or image"] --> B["Browser-local extraction"] --> C["Review and reconciliation"] --> D["Download"]
 ```
 
-The Render gateway is used only by the research workbench's fixed-source news reader in the default setup. Its legacy optional Gemini adapter remains available in source for comparison, but the seven interfaces do not need it or call it for generation. No Gemini key setup is required. Qwen is the default text option; the smaller SmolLM2 option is a lower-memory experiment with substantially weaker instruction following. Generated numbers not found in evidence are flagged conservatively; this check is not mathematical or factual verification. A sleeping news gateway can delay feed retrieval; local document/model tools remain independent.
+## 6. End-to-end request workflow
 
-## Run locally from scratch
+```mermaid
+sequenceDiagram
+    actor Visitor
+    participant UI as Application
+    participant Logic as Processing layer
+    Visitor->>UI: Select invoice input and task
+    UI->>Logic: Read text, extract fields, and compare amounts
+    alt Valid input
+        Logic-->>UI: Editable result and reconciliation status
+        UI-->>Visitor: Render or export the result
+    else Invalid input
+        Logic-->>UI: Input error
+        UI-->>Visitor: Show actionable feedback
+    end
+```
+
+## 7. Data sources, inputs, and outputs
+
+Inputs include pasted text, TXT/Markdown, text-layer PDFs, and PNG/JPEG images. The included invoice is fictional. Outputs include detected fields, missing values, reconciliation status, and an editable downloadable result. [Fictional invoice](site/samples/invoice-example.png)
+
+## 8. Data flow and ETL pipeline
+
+```mermaid
+flowchart LR
+    A["Read text or run OCR"] --> B["Normalize transcript"] --> C["Find field candidates"] --> D["Compare subtotal plus tax with total"] --> E["Review and export"]
+```
+
+## 9. Low-level design and interfaces
+
+```mermaid
+flowchart LR
+    A["app.js: task and state"] --> B["documents.js: file extraction"] --> C["engine.js: fields and reconciliation"] --> D["ui.js: review and download"]
+```
+
+`local-model-worker.js` loads the model selected in `model-policy.js` only when the user starts local generation. The interface provides progress, cancellation, and validation feedback.
+
+## 10. Concepts and algorithms
+
+| Concept | How and why it is used |
+| --- | --- |
+| PDF text extraction | PDF.js reads selectable text page by page and preserves page markers. Scanned pages without selectable text need OCR. |
+| OCR | Tesseract estimates characters from pixels. Its confidence can help identify uncertain text, but it is not a calibrated accuracy estimate. |
+| Rule-based extraction | Deterministic field parsing makes missing values and unusual invoice layouts visible during review. |
+| Reconciliation | Compare subtotal plus tax with total. Discounts, shipping, and multiple tax lines can change the expected result. |
+| Local model inference | Text models operate on the transcript. Experimental vision works on resized image pixels. Manual review remains necessary for amounts. |
+
+## 11. Technology choices and dependencies
+
+| Technology | Role and rationale |
+| --- | --- |
+| PDF.js | Read supported PDFs directly in the browser. |
+| Tesseract.js | Recognize English and Hindi text locally from invoice images. |
+| Transformers.js and ONNX Runtime Web | Run optional open-model inference in a browser worker. |
+| JavaScript and GitHub Pages | Deliver a static interface with local review and export. |
+
+[Dependency versions and reproducible setup](DEPENDENCIES.md)
+
+[Model revisions and limits](site/model-policy.js) · [Vendored notices and versions](site/vendor/)
+
+## 12. Training, inference, and evaluation
+
+The maintained app uses deterministic field extraction and pretrained optional models. It has no project-specific training run or representative invoice accuracy benchmark. Unit tests cover the engine, input contracts, and model policy. The prior browser checks used a synthetic invoice to verify OCR and reconciliation, and exposed incorrect details from experimental vision. Run `npm test`. [Test sources](tests/)
+
+## 13. Limitations and data handling
+
+Use synthetic or authorized documents. Document limits include 5 MiB and 60 pages for supported PDFs, 2 MiB and 16 megapixels for images, and a 40,000-character text limit. Complex layouts, handwriting, and punctuation can lead to extraction errors. Model weights are downloaded on demand. Review all amounts against the invoice before exporting.
+
+## 14. Installation and local setup
 
 Install Node.js 22 and Python 3 for a local static HTTP server. Python is not a production backend for this app.
 
@@ -74,7 +116,7 @@ python3 -m http.server 8000 --directory site
 
 Open http://localhost:8000. Use HTTP rather than double-clicking HTML so that module imports and local data fetches work consistently. No production API secret belongs in `site/`.
 
-## Coding structure
+## 15. Repository structure
 
 ```text
 site/
@@ -90,7 +132,12 @@ archive/           # original README and retired workflows where present
 
 Original source files, notebooks and historical artifacts remain in the repository for comparison. The release publishes only `site/`; old source directories and datasets are not automatically exposed by the application.
 
-## CI/CD and deployment
+## 16. Deployment and operations
+
+```mermaid
+flowchart LR
+    A["GitHub main"] --> B["GitHub Actions checks"] --> C["Publish site directory"] --> D["GitHub Pages"]
+```
 
 CI means continuous integration: each pull request and main-branch push installs exact lockfile dependencies, checks formatting, lints JavaScript, runs meaningful behavior tests and checks module syntax. A failed check stops publishing. CD means continuous deployment: after the required `Build and test` check succeeds on `main`, GitHub Actions uploads `site/` and GitHub Pages serves it over HTTPS.
 
@@ -106,22 +153,12 @@ A commit identifies exactly which source was deployed. Inspect the Actions deplo
 
 Docker packages code and dependencies into a reproducible runtime. This static app does not require a container: Pages serves the same versioned files directly, with less operating work and no container cold starts. A container becomes useful if adding a Python backend; then secrets, patches, resource costs and persistent storage require separate management.
 
-## Data provenance and attribution
+The shipped invoice interface processes OCR and model requests locally.
 
-Original source files are retained. Default analytical examples and the default invoice/profile are fictional. PDF.js 6.4.299 is Apache-2.0 licensed; its license is vendored with the worker. Tesseract.js 7.0.0 / Tesseract core and official tessdata_fast language data are vendored for local OCR with their license notices. English/Hindi language assets download from this same site only when needed. 
+## 17. License, credits, and support
 
-## Practical limits
+Project by **Subhash Dixit**. See the [repository license](LICENSE) for code terms. Report bugs or documentation issues with synthetic reproduction inputs.
 
-Text/context ≤40,000 characters; local generation questions ≤600; local documents ≤5 MiB/60 pages; images ≤2 MiB/16 megapixels. Only PNG/JPEG for image analysis. No persistent document store or cross-device history. Source extraction can change reading order in complex PDFs. OCR and AI output require manual verification. Images are analyzed, not generated. No API key is needed for any default generation function.
+[GitHub Issues](https://github.com/subhashdixit/invoice-extraction-studio/issues)
 
-The test suite checks calculation contracts and invalid inputs. It cannot establish that an input dataset is representative, that a heuristic is scientifically correct for every domain, or that a result is suitable for an automated consequential decision. Read the original source alongside the maintained browser implementation when comparing behavior.
-
-## What the browser checks established
-
-The synthetic invoice passed local OCR and field reconciliation: subtotal 200 + tax 36 = total 236. This verifies that workflow on this fixture, not all invoice layouts. Text-model generation and vision-model inference both ran without API credentials. In an image-only test the small SmolVLM model hallucinated unrelated table details, so its option is explicitly **Experimental vision**. A running model is not evidence of accurate visual understanding.
-
-For document use, prefer image → local OCR → inspect/correct transcript → extract/reconcile fields or ask the text model about that transcript. Selecting a text model does not send it image pixels. Sample text is cleared when loading an image so that unrelated examples cannot silently contaminate its analysis. Model-generated amounts are unverified until checked against the original and reconciled.
-
-## Local dependency installation
-
-The maintained app is HTML/CSS/JavaScript and needs no Python packages. `requirements.txt` documents this; install development tools with `npm ci` using the pinned Node/npm versions. See [DEPENDENCIES.md](DEPENDENCIES.md). Original prototype requirements are preserved at `archive/prototype-requirements.in` where present; they are not the supported install command.
+Third-party runtime and model notices are linked from the dependency documentation.
