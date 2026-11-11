@@ -2,7 +2,7 @@
 
 ## 1. Project overview
 
-Turn invoice text or an image into editable structured fields, then check the extracted amounts against the original document.
+Convert invoice documents into editable structured fields and check the extracted amounts before export. The repository implements local document reading, OCR, field extraction, and reconciliation in the browser.
 
 [Live demo](https://subhashdixit.github.io/invoice-extraction-studio/) · [Source repository](https://github.com/subhashdixit/invoice-extraction-studio)
 
@@ -10,7 +10,17 @@ Turn invoice text or an image into editable structured fields, then check the ex
 
 ## 2. Motivation and problem statement
 
-Invoice details arrive in PDFs and scans with different layouts. Copying amounts and identifiers by hand is slow and can introduce errors. This app reads supported material on the device, brings common fields into one review screen, and flags when subtotal plus tax differs from the reported total.
+### Objective
+
+Extract common invoice identifiers and amounts from supported document formats, then give the user a review step before the result is reused.
+
+### Problem statement
+
+Given invoice text, a readable PDF, or an image, recover fields from layouts that vary across suppliers. Some fields may be missing or misread. The app surfaces uncertain output and checks whether subtotal plus tax agrees with the recorded total.
+
+### Motivation
+
+Manually transferring invoice details takes time and can introduce errors in amounts and identifiers. Local extraction reduces repeated entry while keeping the source and editable result available for review. The repository also includes a fictional input and tests for extraction behavior and model policy.
 
 ## 3. Solution and scope
 
